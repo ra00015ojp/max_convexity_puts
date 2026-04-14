@@ -150,7 +150,7 @@ atm_premium = atm_row['premium']
 st.info(f"**ATM Reference** — Premium ≈ **${atm_premium:.3f}** (Strike ${atm_row['strike']:.2f})")
 
 # ====================== CHARTS ======================
-st.subheader("Chart 1 — Gamma / Premium (Convexity per Dollar)")
+st.subheader("Convexity per Dollar — Gamma / Premium: High Gamma is useless if Theta eats the profit in two days ")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -161,7 +161,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Chart 2 — Gamma × |Delta| / |Theta| vs Premium")
+st.subheader("Convexity over decay — Gamma × |Delta| / |Theta| Balanced approach ")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -172,7 +172,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Chart 3 — Gamma × |Delta| / (Premium × |Theta|) vs Premium")
+st.subheader("Convexity & IV over decay and premium — Gamma × |Delta| * Vega / (Premium × |Theta|) This formula aims to maximize Gamma and Vega (potential gains) while minimizing Theta (cost of time)")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -183,7 +183,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Chart 4 — Gamma × |Delta| × Vega / Premium vs Premium")
+st.subheader("Volatility Play — Gamma × |Delta| × Vega / Premium This favors options that gain significant value if volatility expands")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
