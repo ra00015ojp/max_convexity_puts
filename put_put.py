@@ -179,7 +179,7 @@ st.plotly_chart(
         "Gamma × |Delta| / (Premium × |Theta|)",
         "Gamma × |Δ| / (Prem × |Θ|)",
         "Gamma × |Delta| / (Premium × |Theta|)",
-        lambda x: (x['gamma'] * np.abs(x['delta'])) / (x['premium'] * np.abs(x['theta']))
+        lambda x: (x['gamma'] * np.abs(x['delta']) * x['vega']) / (x['premium'] * np.abs(x['theta']))
     ), use_container_width=True
 )
 
