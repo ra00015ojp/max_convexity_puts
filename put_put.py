@@ -119,6 +119,39 @@ def create_ratio_chart(df, etf_name, atm_premium, title, ratio_name, y_title, ra
     )
     return fig
 
+# ========================== LIQUIDITY ANALYSIS ==========================
+
+def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
+    """Visualizes Volume or Open Interest across premiums and DTE"""
+    etf_df = df[df['etf'] == etf_name].copy()
+    unique_dtes = sorted(etf_df['expiry_dte'].unique())
+    color_map = dict(zip(unique_dtes, px.colors.sample_colorscale("Viridis", np.linspace(0, 1, len(unique_dtes)))))
+
+    fig = go.Figure()
+    for dte in unique_dtes:
+        sub = etf_df[etf_df['expiry_dte'] == dte].sort_values('premium')
+        
+        fig.add_trace(go.Bar(
+            x=sub['premium'],
+            y=sub[metric],
+            name=f'DTE {dte}',
+            marker_color=color_map[dte],
+            customdata=sub[['strike', 'volume', 'openInterest']].values,
+            hovertemplate=
+                "<b>Strike:</b> %{customdata[0]:.2f}<br>" +
+                "<b>Premium:</b> $%{x:.3f}<br>" +
+                "<b>Volume:</b> %{customdata[1]}<br>" +
+                "<b>Open Interest:</b> %{customdata[2]}<extra></extra>"
+        ))
+
+    fig.update_layout(
+        title=f"{etf_name} — {metric.capitalize()} Distribution",
+        xaxis_title="Option Premium ($)",
+        yaxis_title=metric.capitalize(),
+        barmode='stack',
+        height=500
+    )
+    return fig
 
 # ========================== STREAMLIT APP ==========================
 st.set_page_config(page_title="Options Convexity Tool", layout="wide")
@@ -150,7 +183,24 @@ atm_premium = atm_row['premium']
 st.info(f"**ATM Reference** — Premium ≈ **${atm_premium:.3f}** (Strike ${atm_row['strike']:.2f})")
 
 # ====================== CHARTS ======================
-st.subheader("Convexity per Dollar — Gamma / Premium: High Gamma is useless if Theta eats the profit in two days ")
+st.subheader("💧 Liquidity Check — Volume & Open Interest")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("**Daily Volume** (Immediate Liquidity)")
+    st.plotly_chart(create_liquidity_chart(filtered, selected_etf, atm_premium, 'volume'), use_container_width=True)
+
+with col2:
+    st.markdown("**Open Interest** (Market Depth)")
+    st.plotly_chart(create_liquidity_chart(filtered, selected_etf, atm_premium, 'openInterest'), use_container_width=True)
+
+# Advanced: Liquidity Filter Warning
+median_oi = filtered['openInterest'].median()
+low_liquidity_threshold = 50 # Example threshold
+
+st.warning(f"Note: The median Open Interest for these puts is **{median_oi:.0f}**. Strikes with < {low_liquidity_threshold} OI may suffer from wide Bid-Ask spreads.")
+
+st.subheader("Convexity per Dollar — Gamma / Premium "Capital Efficiency" cheap "lottery tickets" with high explosive potential.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -161,7 +211,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Convexity over decay — Gamma × |Delta| / |Theta| Balanced approach ")
+st.subheader("Convexity over decay — Gamma × |Delta| / |Theta|  "Stay-in-the-Trade":  options that move fast but don't bleed out too quickly.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -172,7 +222,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Convexity over decay, premium, IV — Gamma × |Delta| / (Premium × |Theta| × Vega) This formula aims to maximize Gamma and Vega (potential gains) while minimizing Theta (cost of time)")
+st.subheader("Convexity over decay, premium, IV — Gamma × |Delta| / (Premium × |Theta| × Vega) Anti-Fragility: Undervalued convexity that isn't overly dependent on Volatility (Vega) staying high.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -183,7 +233,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Volatility Play — Gamma × |Delta| × Vega / Premium This favors options that gain significant value if volatility expands")
+st.subheader("Volatility Play — Gamma × |Delta| × Vega / Premium "Long Vol Bias": Expecting a "vol spike" or a massive "crash" where IV will explode.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
