@@ -172,14 +172,14 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Convexity & IV over decay and premium — Gamma × |Delta| * Vega / (Premium × |Theta|) This formula aims to maximize Gamma and Vega (potential gains) while minimizing Theta (cost of time)")
+st.subheader("Convexity over decay, premium, IV — Gamma × |Delta| / (Premium × |Theta| × Vega) This formula aims to maximize Gamma and Vega (potential gains) while minimizing Theta (cost of time)")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
         "Gamma × |Delta| / (Premium × |Theta|)",
         "Gamma × |Δ| / (Prem × |Θ|)",
         "Gamma × |Delta| / (Premium × |Theta|)",
-        lambda x: (x['gamma'] * np.abs(x['delta']) * x['vega']) / (x['premium'] * np.abs(x['theta']))
+        lambda x: (x['gamma'] * np.abs(x['delta'])) / (x['premium'] * np.abs(x['theta'] * x['vega']))
     ), use_container_width=True
 )
 
