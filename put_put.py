@@ -122,7 +122,7 @@ def create_ratio_chart(df, etf_name, atm_premium, title, ratio_name, y_title, ra
 # ========================== LIQUIDITY ANALYSIS ==========================
 
 def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
-    """Visualizes Volume or Open Interest across premiums and DTE"""
+    """Visualizes Volume or Open Interest with a Logarithmic Y-axis"""
     etf_df = df[df['etf'] == etf_name].copy()
     unique_dtes = sorted(etf_df['expiry_dte'].unique())
     color_map = dict(zip(unique_dtes, px.colors.sample_colorscale("Viridis", np.linspace(0, 1, len(unique_dtes)))))
@@ -131,9 +131,11 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
     for dte in unique_dtes:
         sub = etf_df[etf_df['expiry_dte'] == dte].sort_values('premium')
         
+        # Note: We use the raw value for the bar height, 
+        # Plotly's 'log' type handles the transformation visually.
         fig.add_trace(go.Bar(
             x=sub['premium'],
-            y=sub[metric],
+            y=sub[metric], 
             name=f'DTE {dte}',
             marker_color=color_map[dte],
             customdata=sub[['strike', 'volume', 'openInterest']].values,
@@ -145,14 +147,14 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
         ))
 
     fig.update_layout(
-        title=f"{etf_name} — {metric.capitalize()} Distribution",
+        title=f"{etf_name} — {metric.capitalize()} Distribution (Log Scale)",
         xaxis_title="Option Premium ($)",
-        yaxis_title=metric.capitalize(),
+        yaxis_title=f"{metric.capitalize()} (Log)",
+        yaxis_type="log",  # <--- This triggers the logarithmic scaling
         barmode='stack',
         height=500
     )
     return fig
-
 # ========================== STREAMLIT APP ==========================
 st.set_page_config(page_title="Options Convexity Tool", layout="wide")
 st.title("📈 Options Convexity & Volatility Analysis Tool")
