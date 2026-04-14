@@ -170,11 +170,11 @@ with st.spinner(f"Downloading options chain for **{selected_etf}**..."):
     df['underlying_price'] = current_price
     df['moneyness'] = df['strike'] / current_price
 
+    # Updated to allow LEAPS and deep OTM strikes
     filtered = df[
         (df['type'] == 'put') &
-        (df['expiry_dte'].between(19, 190)) &
-        (df['premium'].between(0.001, 4.999)) &
-        (df['moneyness'].between(0.80, 1.20))
+        (df['expiry_dte'] < 730) &       # Allow up to 2 years
+        (df['moneyness'].between(0.20, 1.50)) # Allow deep OTM and deep ITM
     ].copy()
 
 st.success(f"✅ Loaded {len(filtered):,} puts for **{selected_etf}** (Spot: ${current_price:,.2f})")
