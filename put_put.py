@@ -200,7 +200,7 @@ low_liquidity_threshold = 50 # Example threshold
 
 st.warning(f"Note: The median Open Interest for these puts is **{median_oi:.0f}**. Strikes with < {low_liquidity_threshold} OI may suffer from wide Bid-Ask spreads.")
 
-st.subheader("Convexity per Dollar — Gamma / Premium "Capital Efficiency" cheap "lottery tickets" with high explosive potential.")
+st.subheader("Convexity per Dollar — Gamma / Premium CAP EFFICIENT: cheap lottery tickets with high explosive potential.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -211,7 +211,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Convexity over decay — Gamma × |Delta| / |Theta|  "Stay-in-the-Trade":  options that move fast but don't bleed out too quickly.")
+st.subheader("Convexity over decay — Gamma × |Delta| / |Theta|  STAY&TRADE: options that move fast but dont bleed out too quickly.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -222,7 +222,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Convexity over decay, premium, IV — Gamma × |Delta| / (Premium × |Theta| × Vega) Anti-Fragility: Undervalued convexity that isn't overly dependent on Volatility (Vega) staying high.")
+st.subheader("Convexity over decay, premium, IV — Gamma × |Delta| / (Premium × |Theta| × Vega) ANTIFRAGILE: Undervalued convexity that isnt overly dependent on Volatility (Vega) staying high.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
@@ -233,7 +233,7 @@ st.plotly_chart(
     ), use_container_width=True
 )
 
-st.subheader("Volatility Play — Gamma × |Delta| × Vega / Premium "Long Vol Bias": Expecting a "vol spike" or a massive "crash" where IV will explode.")
+st.subheader("Volatility Play — Gamma × |Delta| × Vega / Premium LONG VOL BIAS: Expecting a massive crash where IV will explode.")
 st.plotly_chart(
     create_ratio_chart(
         filtered, selected_etf, atm_premium,
