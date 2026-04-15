@@ -136,7 +136,6 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
         # Plotly's 'log' type handles the transformation visually.
         fig.add_trace(go.Bar(
             x=sub['premium'],
-            y=sub[metric],
             y=sub[metric], 
             name=f'DTE {dte}',
             marker_color=color_map[dte],
