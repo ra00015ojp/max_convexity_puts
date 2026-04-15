@@ -148,7 +148,6 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
         ))
 
     fig.update_layout(
-        title=f"{etf_name} — {metric.capitalize()} Distribution",
         title=f"{etf_name} — {metric.capitalize()} Distribution (Log Scale)",
         xaxis_title="Option Premium ($)",
         yaxis_title=metric.capitalize(),
