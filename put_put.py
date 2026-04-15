@@ -11,23 +11,23 @@ import plotly.express as px
 def black_scholes_greeks(S, K, T, r, sigma, q=0.0, option_type='put'):
     if T <= 0 or sigma <= 0 or np.isnan(sigma):
         return np.nan, np.nan, np.nan, np.nan, np.nan  # delta, gamma, theta, vega
-
+    
     d1 = (np.log(S / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
-
+    
     gamma = np.exp(-q * T) * norm.pdf(d1) / (S * sigma * np.sqrt(T))
-
+    
     if option_type.lower() == 'call':
         delta = np.exp(-q * T) * norm.cdf(d1)
     else:
         delta = np.exp(-q * T) * (norm.cdf(d1) - 1)
-
+    
     theta = - (S * np.exp(-q * T) * norm.pdf(d1) * sigma) / (2 * np.sqrt(T)) \
             + q * K * np.exp(-r * T) * norm.cdf(-d2) \
             - r * S * np.exp(-q * T) * norm.cdf(-d1)
-
+    
     vega = S * np.exp(-q * T) * norm.pdf(d1) * np.sqrt(T)
-
+    
     return delta, gamma, theta, vega
 
 
@@ -38,10 +38,10 @@ def download_option_chain(ticker: str, r=0.042):
         current_price = etf.history(period="1d")['Close'].iloc[-1]
     except:
         current_price = etf.info.get('regularMarketPrice') or etf.info.get('previousClose', None)
-
+    
     q = etf.info.get('dividendYield', 0.0) or 0.0
     expirations = etf.options
-
+    
     all_puts = []
     today = datetime.now().date()
     for exp_str in expirations:
@@ -50,7 +50,7 @@ def download_option_chain(ticker: str, r=0.042):
         T = dte / 365.25
         if T <= 0:
             continue
-
+            
         chain = etf.option_chain(exp_str)
         puts = chain.puts.copy().reset_index()
         puts['expiry_dte'] = dte
@@ -59,16 +59,16 @@ def download_option_chain(ticker: str, r=0.042):
         puts['underlying_price'] = current_price
         puts['premium'] = (puts['bid'] + puts['ask']) / 2
         puts['premium'] = puts['premium'].fillna(puts['lastPrice'])
-
+        
         def compute(row):
             d, g, th, v = black_scholes_greeks(
                 current_price, row['strike'], row['T'], r, row['impliedVolatility'], q, 'put')
             return pd.Series([d, g, th, v])
-
+        
         greeks = puts.apply(compute, axis=1)
         puts[['delta', 'gamma', 'theta', 'vega']] = greeks
         all_puts.append(puts)
-
+    
     df = pd.concat(all_puts, ignore_index=True)
     df = df.dropna(subset=['gamma', 'delta', 'theta', 'vega', 'premium'])
     return df, current_price
@@ -82,16 +82,16 @@ def create_ratio_chart(df, etf_name, atm_premium, title, ratio_name, y_title, ra
     color_values = np.linspace(0, 1, len(unique_dtes))
     colors = px.colors.sample_colorscale("Viridis", color_values)
     color_map = dict(zip(unique_dtes, colors))
-
+    
     fig = go.Figure()
     for dte in unique_dtes:
         sub = etf_df[etf_df['expiry_dte'] == dte].sort_values('premium').copy()
         if sub.empty:
             continue
-
+            
         # Calculate the ratio safely
         sub['ratio_value'] = ratio_func(sub)
-
+        
         fig.add_trace(go.Scatter(
             x=sub['premium'],
             y=sub['ratio_value'],
@@ -106,10 +106,10 @@ def create_ratio_chart(df, etf_name, atm_premium, title, ratio_name, y_title, ra
                 f"<b>{ratio_name}:</b> %{{y:.6f}}<extra></extra>",
             customdata=sub[['strike', 'expiry_dte']].values
         ))
-
+    
     fig.add_vline(x=atm_premium, line_dash="dash", line_color="red",
                   annotation_text=f"ATM ≈ ${atm_premium:.3f}", annotation_position="top right")
-
+    
     fig.update_layout(
         title=f"{etf_name} — {title}",
         xaxis_title="Option Premium ($)",
@@ -122,7 +122,6 @@ def create_ratio_chart(df, etf_name, atm_premium, title, ratio_name, y_title, ra
 # ========================== LIQUIDITY ANALYSIS ==========================
 
 def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
-    """Visualizes Volume or Open Interest across premiums and DTE"""
     """Visualizes Volume or Open Interest with a Logarithmic Y-axis"""
     etf_df = df[df['etf'] == etf_name].copy()
     unique_dtes = sorted(etf_df['expiry_dte'].unique())
@@ -131,7 +130,7 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
     fig = go.Figure()
     for dte in unique_dtes:
         sub = etf_df[etf_df['expiry_dte'] == dte].sort_values('premium')
-
+        
         # Note: We use the raw value for the bar height, 
         # Plotly's 'log' type handles the transformation visually.
         fig.add_trace(go.Bar(
@@ -150,14 +149,12 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
     fig.update_layout(
         title=f"{etf_name} — {metric.capitalize()} Distribution (Log Scale)",
         xaxis_title="Option Premium ($)",
-        yaxis_title=metric.capitalize(),
         yaxis_title=f"{metric.capitalize()} (Log)",
         yaxis_type="log",  # <--- This triggers the logarithmic scaling
         barmode='stack',
         height=500
     )
     return fig
-
 # ========================== STREAMLIT APP ==========================
 st.set_page_config(page_title="Options Convexity Tool", layout="wide")
 st.title("📈 Options Convexity & Volatility Analysis Tool")
