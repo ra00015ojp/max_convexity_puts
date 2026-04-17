@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -72,6 +72,87 @@ def download_option_chain(ticker: str, r=0.042):
     df = pd.concat(all_puts, ignore_index=True)
     df = df.dropna(subset=['gamma', 'delta', 'theta', 'vega', 'premium'])
     return df, current_price
+
+
+# ========================== PRICE & VIX HISTORY ==========================
+@st.cache_data(ttl=3600, show_spinner=False)
+def download_price_history(ticker: str, period: str = "1mo"):
+    """Download 1-month price history for underlying asset"""
+    etf = yf.Ticker(ticker)
+    hist = etf.history(period=period)
+    hist = hist[['Close']].reset_index()
+    hist.columns = ['Date', 'Close']
+    return hist
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def download_vix_history(period: str = "1mo"):
+    """Download VIX history"""
+    vix = yf.Ticker('^VIX')
+    hist = vix.history(period=period)
+    hist = hist[['Close']].reset_index()
+    hist.columns = ['Date', 'VIX']
+    return hist
+
+
+def create_price_vix_chart(ticker: str, current_price: float):
+    """Create dual-axis chart: Underlying Price (left) and VIX (right)"""
+    price_hist = download_price_history(ticker, "1mo")
+    vix_hist = download_vix_history("1mo")
+    
+    # Merge on date
+    merged = pd.merge(price_hist, vix_hist, on='Date', how='outer').sort_values('Date')
+    merged = merged.ffill().bfill()  # Forward/back fill to handle gaps
+    
+    # Calculate 1-month change
+    price_1m_ago = price_hist.iloc[0]['Close']
+    price_change_pct = ((current_price - price_1m_ago) / price_1m_ago) * 100
+    
+    fig = go.Figure()
+    
+    # Price trace (left axis)
+    fig.add_trace(go.Scatter(
+        x=merged['Date'],
+        y=merged['Close'],
+        name=f'{ticker} Price',
+        line=dict(color='#1f77b4', width=2.5),
+        yaxis='y1',
+        hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br><b>Price:</b> $%{y:.2f}<extra></extra>'
+    ))
+    
+    # VIX trace (right axis)
+    fig.add_trace(go.Scatter(
+        x=merged['Date'],
+        y=merged['VIX'],
+        name='VIX',
+        line=dict(color='#d62728', width=2, dash='dot'),
+        yaxis='y2',
+        hovertemplate='<b>Date:</b> %{x|%Y-%m-%d}<br><b>VIX:</b> %{y:.2f}<extra></extra>'
+    ))
+    
+    # Layout with dual y-axes
+    fig.update_layout(
+        title=f"{ticker} — 1-Month Price & VIX Overlay (Change: {price_change_pct:+.2f}%)",
+        xaxis=dict(title='Date'),
+        yaxis=dict(
+            title=f'{ticker} Price ($)',
+            titlefont=dict(color='#1f77b4'),
+            tickfont=dict(color='#1f77b4'),
+        ),
+        yaxis2=dict(
+            title='VIX',
+            titlefont=dict(color='#d62728'),
+            tickfont=dict(color='#d62728'),
+            anchor='x',
+            overlaying='y',
+            side='right'
+        ),
+        legend=dict(x=0.02, y=0.98, bgcolor='rgba(255,255,255,0.8)'),
+        hovermode='x unified',
+        height=450
+    )
+    
+    return fig
 
 
 # ========================== GENERIC CHART FUNCTION ==========================
@@ -155,6 +236,7 @@ def create_liquidity_chart(df, etf_name, atm_premium, metric='openInterest'):
         height=500
     )
     return fig
+
 # ========================== STREAMLIT APP ==========================
 st.set_page_config(page_title="Options Convexity Tool", layout="wide")
 st.title("📈 Options Convexity & Volatility Analysis Tool")
@@ -178,6 +260,12 @@ with st.spinner(f"Downloading options chain for **{selected_etf}**..."):
     ].copy()
 
 st.success(f"✅ Loaded {len(filtered):,} puts for **{selected_etf}** (Spot: ${current_price:,.2f})")
+
+# ====================== PRICE & VIX SECTION ======================
+st.subheader("📊 1-Month Price & Volatility Context")
+with st.spinner(f"Loading price history and VIX data..."):
+    price_vix_fig = create_price_vix_chart(selected_etf, current_price)
+    st.plotly_chart(price_vix_fig, use_container_width=True)
 
 # ATM Reference
 atm_row = filtered.loc[(filtered['moneyness'] - 1).abs().idxmin()]
