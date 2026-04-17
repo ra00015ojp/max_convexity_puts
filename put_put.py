@@ -8,26 +8,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 import time
 from functools import wraps
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-# ========================== RETRY & SESSION CONFIG ==========================
-def create_session_with_retries(retries=3, backoff_factor=0.5, status_forcelist=(429, 500, 502, 503, 504)):
-    """Create a requests session with automatic retry and connection pooling"""
-    session = requests.Session()
-    retry_strategy = Retry(
-        total=retries,
-        status_forcelist=status_forcelist,
-        allowed_methods=["HEAD", "GET", "OPTIONS"],
-        backoff_factor=backoff_factor
-    )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    return session
-
-
+# ========================== RETRY CONFIG ==========================
 def retry_with_backoff(max_retries=3, base_wait=1):
     """Decorator for functions that may hit rate limits"""
     def decorator(func):
@@ -51,13 +33,6 @@ def retry_with_backoff(max_retries=3, base_wait=1):
             return None
         return wrapper
     return decorator
-
-
-# Session for connection pooling
-@st.cache_resource
-def get_session():
-    """Cached session for connection reuse"""
-    return create_session_with_retries(retries=3, backoff_factor=1.0)
 
 
 # ========================== GREEKS CALCULATION ==========================
@@ -87,10 +62,9 @@ def black_scholes_greeks(S, K, T, r, sigma, q=0.0, option_type='put'):
 @retry_with_backoff(max_retries=3, base_wait=2)
 @st.cache_data(ttl=7200, show_spinner=False)
 def download_option_chain(ticker: str, r=0.042):
-    session = get_session()
-    etf = yf.Ticker(ticker, session=session)
+    etf = yf.Ticker(ticker)
     try:
-        current_price = etf.history(period="1d", session=session)['Close'].iloc[-1]
+        current_price = etf.history(period="1d")['Close'].iloc[-1]
     except:
         current_price = etf.info.get('regularMarketPrice') or etf.info.get('previousClose', None)
     
@@ -135,9 +109,8 @@ def download_option_chain(ticker: str, r=0.042):
 @st.cache_data(ttl=7200, show_spinner=False)
 def download_price_history(ticker: str, period: str = "1mo"):
     """Download 1-month price history for underlying asset"""
-    session = get_session()
-    etf = yf.Ticker(ticker, session=session)
-    hist = etf.history(period=period, session=session)
+    etf = yf.Ticker(ticker)
+    hist = etf.history(period=period)
     hist = hist[['Close']].reset_index()
     hist.columns = ['Date', 'Close']
     return hist
@@ -147,9 +120,8 @@ def download_price_history(ticker: str, period: str = "1mo"):
 @st.cache_data(ttl=7200, show_spinner=False)
 def download_vix_history(period: str = "1mo"):
     """Download VIX history"""
-    session = get_session()
-    vix = yf.Ticker('^VIX', session=session)
-    hist = vix.history(period=period, session=session)
+    vix = yf.Ticker('^VIX')
+    hist = vix.history(period=period)
     hist = hist[['Close']].reset_index()
     hist.columns = ['Date', 'VIX']
     return hist
