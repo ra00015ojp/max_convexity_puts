@@ -6,6 +6,59 @@ from scipy.stats import norm
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import plotly.express as px
+import time
+from functools import wraps
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+# ========================== RETRY & SESSION CONFIG ==========================
+def create_session_with_retries(retries=3, backoff_factor=0.5, status_forcelist=(429, 500, 502, 503, 504)):
+    """Create a requests session with automatic retry and connection pooling"""
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=retries,
+        status_forcelist=status_forcelist,
+        method_whitelist=["HEAD", "GET", "OPTIONS"],
+        backoff_factor=backoff_factor
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def retry_with_backoff(max_retries=3, base_wait=1):
+    """Decorator for functions that may hit rate limits"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            wait_time = base_wait
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if "Too Many Requests" in str(e) or "Rate limited" in str(e):
+                        if attempt < max_retries - 1:
+                            st.warning(f"⏳ Rate limited. Retrying in {wait_time}s... (Attempt {attempt + 1}/{max_retries})")
+                            time.sleep(wait_time)
+                            wait_time *= 2  # Exponential backoff
+                        else:
+                            st.error(f"❌ Rate limit exceeded after {max_retries} attempts. Please try again in a few minutes.")
+                            raise
+                    else:
+                        raise
+            return None
+        return wrapper
+    return decorator
+
+
+# Session for connection pooling
+@st.cache_resource
+def get_session():
+    """Cached session for connection reuse"""
+    return create_session_with_retries(retries=3, backoff_factor=1.0)
+
 
 # ========================== GREEKS CALCULATION ==========================
 def black_scholes_greeks(S, K, T, r, sigma, q=0.0, option_type='put'):
@@ -31,11 +84,13 @@ def black_scholes_greeks(S, K, T, r, sigma, q=0.0, option_type='put'):
     return delta, gamma, theta, vega
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@retry_with_backoff(max_retries=3, base_wait=2)
+@st.cache_data(ttl=7200, show_spinner=False)
 def download_option_chain(ticker: str, r=0.042):
-    etf = yf.Ticker(ticker)
+    session = get_session()
+    etf = yf.Ticker(ticker, session=session)
     try:
-        current_price = etf.history(period="1d")['Close'].iloc[-1]
+        current_price = etf.history(period="1d", session=session)['Close'].iloc[-1]
     except:
         current_price = etf.info.get('regularMarketPrice') or etf.info.get('previousClose', None)
     
@@ -45,6 +100,7 @@ def download_option_chain(ticker: str, r=0.042):
     all_puts = []
     today = datetime.now().date()
     for exp_str in expirations:
+        time.sleep(0.2)  # Small delay between expiration requests
         exp_date = datetime.strptime(exp_str, '%Y-%m-%d').date()
         dte = (exp_date - today).days
         T = dte / 365.25
@@ -75,21 +131,25 @@ def download_option_chain(ticker: str, r=0.042):
 
 
 # ========================== PRICE & VIX HISTORY ==========================
-@st.cache_data(ttl=3600, show_spinner=False)
+@retry_with_backoff(max_retries=3, base_wait=1)
+@st.cache_data(ttl=7200, show_spinner=False)
 def download_price_history(ticker: str, period: str = "1mo"):
     """Download 1-month price history for underlying asset"""
-    etf = yf.Ticker(ticker)
-    hist = etf.history(period=period)
+    session = get_session()
+    etf = yf.Ticker(ticker, session=session)
+    hist = etf.history(period=period, session=session)
     hist = hist[['Close']].reset_index()
     hist.columns = ['Date', 'Close']
     return hist
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@retry_with_backoff(max_retries=3, base_wait=1)
+@st.cache_data(ttl=7200, show_spinner=False)
 def download_vix_history(period: str = "1mo"):
     """Download VIX history"""
-    vix = yf.Ticker('^VIX')
-    hist = vix.history(period=period)
+    session = get_session()
+    vix = yf.Ticker('^VIX', session=session)
+    hist = vix.history(period=period, session=session)
     hist = hist[['Close']].reset_index()
     hist.columns = ['Date', 'VIX']
     return hist
